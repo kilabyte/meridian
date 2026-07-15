@@ -279,6 +279,7 @@ function render(s, reqs, logs, quota) {
       + (ce.unpricedRequestCount > 0
           ? ' ' + ce.unpricedRequestCount + ' request' + (ce.unpricedRequestCount === 1 ? '' : 's') + ' from unrecognized models excluded.'
           : '')
+      + ' Rates are editable in <a href="/settings" style="color:var(--accent)">Settings</a>.'
       + '</div></div>';
   }
 

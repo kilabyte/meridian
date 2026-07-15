@@ -73,6 +73,23 @@ describe("resolveModelPricing", () => {
     expect(resolveModelPricing("unknown")).toBeNull()
     expect(resolveModelPricing("")).toBeNull()
   })
+
+  it("prices claude-sonnet-5 at the introductory rate", () => {
+    // $2/$10 through 2026-08-31, then $3/$15 (see pricing.ts comment)
+    expect(resolveModelPricing("claude-sonnet-5")).toMatchObject({ inputPerMTok: 2, outputPerMTok: 10 })
+  })
+
+  it("prefers user overrides over the built-in table and family fallback", () => {
+    const overrides = {
+      "claude-opus-4-8": { inputPerMTok: 9, outputPerMTok: 45, cacheReadPerMTok: 0.9, cacheWritePerMTok: 11.25 },
+      "totally-custom": { inputPerMTok: 1, outputPerMTok: 2, cacheReadPerMTok: 0.1, cacheWritePerMTok: 1.25 },
+    }
+    expect(resolveModelPricing("claude-opus-4-8", overrides)!.inputPerMTok).toBe(9)
+    expect(resolveModelPricing("claude-opus-4-8[1m]", overrides)!.inputPerMTok).toBe(9)
+    expect(resolveModelPricing("totally-custom", overrides)!.outputPerMTok).toBe(2)
+    // Models without an override still resolve normally
+    expect(resolveModelPricing("haiku", overrides)!.inputPerMTok).toBe(1)
+  })
 })
 
 describe("estimateRequestCostUsd", () => {
@@ -179,5 +196,17 @@ describe("computeSummary costEstimate integration", () => {
     // 1M in ($5) + 0.2M out ($5)
     expect(summary.costEstimate.totalUsd).toBeCloseTo(10, 6)
     expect(summary.costEstimate.byModel["claude-opus-4-8"]!.requests).toBe(1)
+  })
+
+  it("applies pricing overrides passed to computeSummary", () => {
+    const overrides = {
+      "claude-opus-4-8": { inputPerMTok: 10, outputPerMTok: 50, cacheReadPerMTok: 1, cacheWritePerMTok: 12.5 },
+    }
+    const summary = computeSummary(
+      [makeMetric({ requestModel: "claude-opus-4-8", inputTokens: 1_000_000 })],
+      3_600_000,
+      overrides,
+    )
+    expect(summary.costEstimate.totalUsd).toBeCloseTo(10, 6)
   })
 })

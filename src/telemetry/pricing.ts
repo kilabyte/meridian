@@ -6,8 +6,11 @@
  * question: "what would this usage have cost at API list prices?", useful
  * for judging how much value the subscription is delivering.
  *
- * Rates are USD per million tokens, sourced from https://www.anthropic.com/pricing
- * (snapshot 2026-06). Cache rates are derived from the input rate:
+ * Rates are USD per million tokens, verified against the official pricing
+ * docs (platform.claude.com/docs/en/about-claude/pricing, snapshot 2026-07).
+ * Users can override any rate, or add models missing from this table, via
+ * the settings page (persisted by pricingStore.ts; overrides win in
+ * resolveModelPricing). Cache rates are derived from the input rate:
  *   - cache read  = 0.10× input
  *   - cache write = 1.25× input (5-minute TTL, the TTL the SDK uses, see
  *     MONITORING.md; 1-hour TTL writes bill at 2×, so if a client opted into
@@ -30,8 +33,13 @@ export interface ModelPricing {
   cacheWritePerMTok: number
 }
 
-const CACHE_READ_MULTIPLIER = 0.1
-const CACHE_WRITE_MULTIPLIER = 1.25
+export const CACHE_READ_MULTIPLIER = 0.1
+export const CACHE_WRITE_MULTIPLIER = 1.25
+
+/** Normalize a model string for pricing lookup: trimmed, lowercase, [1m] suffix stripped. */
+export function normalizeModelKey(model: string): string {
+  return model.trim().toLowerCase().replace(/\[1m\]$/, "")
+}
 
 function rates(inputPerMTok: number, outputPerMTok: number): ModelPricing {
   return {
@@ -45,7 +53,10 @@ function rates(inputPerMTok: number, outputPerMTok: number): ModelPricing {
 const FABLE = rates(10, 50)
 const OPUS = rates(5, 25) // Opus 4.5 and later
 const OPUS_LEGACY = rates(15, 75) // Opus 4.1 and earlier
-const SONNET = rates(3, 15) // every Sonnet generation to date
+const SONNET = rates(3, 15) // every Sonnet generation to date, standard rate
+// Sonnet 5 introductory pricing runs through 2026-08-31; standard 3/15 applies
+// from 2026-09-01. Update this entry (or set a settings override) after that.
+const SONNET_5_INTRO = rates(2, 10)
 const HAIKU = rates(1, 5) // Haiku 4.5
 const HAIKU_35 = rates(0.8, 4)
 const HAIKU_3 = rates(0.25, 1.25)
@@ -55,8 +66,11 @@ const HAIKU_3 = rates(0.25, 1.25)
  * suffix. Covers the SDK aliases meridian itself uses (opus, sonnet, ...)
  * plus concrete API model IDs that clients commonly send. Dated snapshot
  * IDs (e.g. claude-haiku-4-5-20251001) fall through to the family rules.
+ *
+ * Exported for the settings page, which lists these models with their
+ * default rates so users can override them.
  */
-const EXACT_PRICING: Record<string, ModelPricing> = {
+export const BUILTIN_MODEL_PRICING: Record<string, ModelPricing> = {
   fable: FABLE,
   "claude-fable-5": FABLE,
   "claude-mythos-5": FABLE,
@@ -70,7 +84,7 @@ const EXACT_PRICING: Record<string, ModelPricing> = {
   "claude-opus-4-20250514": OPUS_LEGACY,
   "claude-3-opus-20240229": OPUS_LEGACY,
   sonnet: SONNET,
-  "claude-sonnet-5": SONNET,
+  "claude-sonnet-5": SONNET_5_INTRO,
   "claude-sonnet-4-6": SONNET,
   "claude-sonnet-4-5": SONNET,
   haiku: HAIKU,
@@ -80,15 +94,24 @@ const EXACT_PRICING: Record<string, ModelPricing> = {
 }
 
 /**
- * Resolve a model string to pricing. Exact table first, then family
- * fallback so versioned/dated IDs (claude-opus-4-8, claude-haiku-4-5-20251001)
- * and future releases still price at their family's current rate.
+ * Resolve a model string to pricing. User-defined overrides win, then the
+ * exact built-in table, then family fallback so versioned/dated IDs
+ * (claude-opus-4-8, claude-haiku-4-5-20251001) and future releases still
+ * price at their family's current rate.
  * Returns null for unrecognized models; callers must not treat that as $0.
  */
-export function resolveModelPricing(model: string): ModelPricing | null {
-  const normalized = model.toLowerCase().replace(/\[1m\]$/, "").trim()
+export function resolveModelPricing(
+  model: string,
+  overrides?: Record<string, ModelPricing>,
+): ModelPricing | null {
+  const normalized = normalizeModelKey(model)
 
-  const exact = EXACT_PRICING[normalized]
+  if (overrides) {
+    const override = overrides[normalized]
+    if (override) return override
+  }
+
+  const exact = BUILTIN_MODEL_PRICING[normalized]
   if (exact) return exact
 
   if (normalized.includes("fable") || normalized.includes("mythos")) return FABLE
@@ -124,15 +147,19 @@ function roundUsd(value: number): number {
 /**
  * Aggregate estimated cost per model across a set of metrics.
  * Grouping key is requestModel || model, matching computeSummary's byModel.
+ * Pass overrides (from pricingStore) to apply user-defined rates.
  */
-export function computeCostEstimate(metrics: RequestMetric[]): CostEstimate {
+export function computeCostEstimate(
+  metrics: RequestMetric[],
+  overrides?: Record<string, ModelPricing>,
+): CostEstimate {
   const byModel: Record<string, ModelCostBreakdown> = {}
   let totalUsd = 0
   let unpricedRequestCount = 0
 
   for (const metric of metrics) {
     const modelKey = metric.requestModel || metric.model
-    const pricing = resolveModelPricing(modelKey)
+    const pricing = resolveModelPricing(modelKey, overrides)
     const entry = byModel[modelKey] ??= {
       requests: 0,
       inputTokens: 0,
