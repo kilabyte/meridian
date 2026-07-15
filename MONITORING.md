@@ -34,6 +34,16 @@ The SDK uses 5-minute TTL prompt caching. On each turn, the system prompt + tool
 
 Meridian sorts tools alphabetically before registration to keep the prefix stable. If you see cache misses on continuations, something is changing the prefix between turns.
 
+## Estimated Cost
+
+The Overview tab shows an **Estimated Cost** section: a headline card with the window's total, per-model cards, and a table breaking down input/output/cache-read/cache-write tokens with the estimated USD per model. The same data is available on the API as `costEstimate` in `GET /telemetry/summary`.
+
+What the number means:
+
+- It is the **equivalent Anthropic API list price** for the window's token usage. Claude Max requests are covered by the subscription and are never billed per token. Use it to gauge how much value the subscription is delivering, not as a bill.
+- Rates are a static table in [`src/telemetry/pricing.ts`](./src/telemetry/pricing.ts) (cache reads at 0.1x input, cache writes at the 5-minute TTL rate of 1.25x input, the TTL the SDK uses). Verify against [anthropic.com/pricing](https://www.anthropic.com/pricing) after model launches or price changes.
+- Models without a pricing entry are **excluded from the total** and flagged "no pricing" in the table rather than silently counted as $0. Add missing models to the table in `pricing.ts`.
+
 ## Quick Health Check
 
 ```bash

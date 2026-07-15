@@ -3,6 +3,7 @@
  */
 
 import type { RequestMetric, PhaseTiming, TelemetrySummary } from "./types"
+import { computeCostEstimate } from "./pricing"
 
 export function computePercentiles(values: number[]): PhaseTiming {
   if (values.length === 0) return { p50: 0, p95: 0, p99: 0, min: 0, max: 0, avg: 0 }
@@ -48,6 +49,7 @@ export function computeSummary(metrics: RequestMetric[], windowMs: number): Tele
         avgCacheHitRate: 0,
         cacheMissOnResumeCount: 0,
       },
+      costEstimate: { totalUsd: 0, byModel: {}, unpricedRequestCount: 0 },
     }
   }
 
@@ -127,5 +129,6 @@ export function computeSummary(metrics: RequestMetric[], windowMs: number): Tele
         : 0,
       cacheMissOnResumeCount,
     },
+    costEstimate: computeCostEstimate(metrics),
   }
 }
