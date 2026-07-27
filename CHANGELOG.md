@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.57.1](https://github.com/rynfar/meridian/compare/meridian-v1.57.0...meridian-v1.57.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* make postinstall script Windows-portable ([ac8244b](https://github.com/rynfar/meridian/commit/ac8244bdf642618070917511363cd659bdc2a6f0))
+* make postinstall script Windows-portable ([379e0c9](https://github.com/rynfar/meridian/commit/379e0c9d118c063452715f805a0d65e8c641b3e5))
+* scope rate-limit store per profile so priority cooldowns use the right account's reset ([#697](https://github.com/rynfar/meridian/issues/697)) ([1cd557c](https://github.com/rynfar/meridian/commit/1cd557c442025cf7ac003c0c79f05d0797dd47a6))
+* **session:** bound modified-continuation resume so stale lineage replays fresh ([6b61e66](https://github.com/rynfar/meridian/commit/6b61e66ac2bce14364b435d5d9bc80e9bcaf88f5))
+* **session:** bound modified-continuation resume so stale lineage replays fresh ([141eab5](https://github.com/rynfar/meridian/commit/141eab58009dbedb9a41ae904d61eec9e960c5d0)), closes [#689](https://github.com/rynfar/meridian/issues/689)
+* **settings:** isolate tests from the developer's real settings file ([#703](https://github.com/rynfar/meridian/issues/703)) ([2a30a8c](https://github.com/rynfar/meridian/commit/2a30a8c3d6b1eb4b854c85785d2c46d1d73b9bd4))
+* surface claude-code postinstall output instead of silencing it ([301cc5c](https://github.com/rynfar/meridian/commit/301cc5ca91dec9efd95049a7b830cd950f6f0289))
+
 ## [1.57.0](https://github.com/rynfar/meridian/compare/meridian-v1.56.1...meridian-v1.57.0) (2026-07-24)
 
 
